@@ -1,8 +1,11 @@
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:map_camera_flutter/map_camera_flutter.dart';
 import 'package:image/image.dart' as img;
+import 'package:url_launcher/url_launcher.dart';
 class CameraScreen extends StatefulWidget {
   final CameraDescription camera;
   CameraScreen({required this.camera});
@@ -27,6 +30,28 @@ class _CameraScreenState extends State<CameraScreen> {
     return Scaffold(
         body: MapCameraLocation(
           camera: widget.camera,
+          onGalleryClick: () async {
+            //await ImagePicker().pickImage(source: ImageSource.gallery);
+            // await FilePicker.platform.pickFiles(
+            //   type: FileType.any, // Change to `FileType.any` for all files
+            // );
+            if (Platform.isAndroid) {
+              const intent = AndroidIntent(
+                action: 'android.intent.action.VIEW',
+                type: 'image/*', // Opens gallery
+                flags: [Flag.FLAG_ACTIVITY_NEW_TASK],
+              );
+              await intent.launch();
+            } else if (Platform.isIOS) {
+              final Uri uri = Uri.parse("photos-redirect://");
+              if (!await launchUrl(uri)) {
+                throw Exception("Could not open gallery");
+              }
+            }
+            else {
+              throw UnsupportedError("This platform is not supported");
+            }
+          },
           onImageCaptured: (ImageAndLocationData data) async {
             print('Captured image path: ${data.imagePath}');
             print('Latitude: ${data.latitude}');
