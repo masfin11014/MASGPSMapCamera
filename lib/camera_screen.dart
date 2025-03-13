@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:map_camera_flutter/map_camera_flutter.dart';
 import 'package:image/image.dart' as img;
 class CameraScreen extends StatefulWidget {
@@ -58,11 +59,29 @@ class _CameraScreenState extends State<CameraScreen> {
         final result = await MethodChannel('com.mas.gps_map_camera.mas_gps_map_camera/gallery')
             .invokeMethod('saveToGallery', {'path': newFile.path});
         print('Image saved to gallery: $result');
+        Fluttertoast.showToast(
+            msg: "Image saved to gallery",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            timeInSecForIosWeb: 1,
+            backgroundColor: Colors.green,
+            textColor: Colors.white,
+            fontSize: 16.0
+        );
       } else if (Platform.isIOS) {
         // On iOS, save the image to the gallery
         final result = await MethodChannel('com.mas.gps_map_camera.mas_gps_map_camera/gallery')
             .invokeMethod('saveToGallery', {'path': newFile.path});
         print('Image saved to gallery: $result');
+        Fluttertoast.showToast(
+            msg: "Image saved to gallery",
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.BOTTOM,
+            timeInSecForIosWeb: 1,
+            backgroundColor: Colors.green,
+            textColor: Colors.white,
+            fontSize: 16.0
+        );
       }
     } catch (e) {
       print('Error saving image: $e');

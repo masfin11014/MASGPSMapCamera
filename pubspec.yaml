@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   map_camera_flutter: ^0.0.8
   image: ^3.0.1
+  fluttertoast: ^8.2.12
 dev_dependencies:
   flutter_test:
     sdk: flutter
