@@ -5,8 +5,8 @@ import '../../constants/app_images.dart';
 import 'camera_screen.dart';
 
 class SplashScreen extends StatefulWidget {
-  final CameraDescription camera;
-  SplashScreen({required this.camera});
+  final List<CameraDescription> cameras;
+  SplashScreen({required this.cameras});
   @override
   _SplashScreenState createState() => _SplashScreenState();
 }
@@ -20,7 +20,7 @@ class _SplashScreenState extends State<SplashScreen> {
     Future.delayed(Duration(milliseconds: 2000), () {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => CameraScreen(camera: widget.camera,)),);
+        MaterialPageRoute(builder: (context) => CameraScreen(cameras: widget.cameras,)),);
     });
 //request permission
   }

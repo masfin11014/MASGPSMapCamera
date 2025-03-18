@@ -8,15 +8,14 @@ Future<void> main() async {
   final cameras = await availableCameras();
   final firstCamera = cameras.first;
   runApp(MyApp(
-    camera: firstCamera,
+    cameras: cameras,
   ));
 
 }
 
 class MyApp extends StatelessWidget {
-  final CameraDescription camera;
-
-  const MyApp({super.key, required this.camera});
+  final List<CameraDescription> cameras;
+  const MyApp({super.key, required this.cameras});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +26,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: SplashScreen(camera: camera,),
+      home: SplashScreen(cameras: cameras,),
     );
   }
 }
