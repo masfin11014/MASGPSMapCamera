@@ -14,10 +14,36 @@ class CameraScreen extends StatefulWidget {
 }
 
 class _CameraScreenState extends State<CameraScreen> {
+  late CameraController _cameraController;
+  bool _isFlashOn = false;
+  bool _isCameraInitialized = false;
 
   @override
   void initState() {
     super.initState();
+    _initializeCamera();
+  }
+
+  Future<void> _initializeCamera() async {
+    _cameraController = CameraController(widget.camera, ResolutionPreset.high);
+    await _cameraController.initialize();
+    if (!mounted) return;
+    setState(() {
+      _isCameraInitialized = true;
+    });
+  }
+
+  void _toggleFlashlight() async {
+    if (_isCameraInitialized) {
+      try {
+        await _cameraController.setFlashMode(_isFlashOn ? FlashMode.off : FlashMode.torch);
+        setState(() {
+          _isFlashOn = !_isFlashOn;
+        });
+      } catch (e) {
+        print("Error toggling flashlight: $e");
+      }
+    }
   }
 
   @override
@@ -28,42 +54,55 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: MapCameraLocation(
-          camera: widget.camera,
-          onGalleryClick: () async {
-            //await ImagePicker().pickImage(source: ImageSource.gallery);
-            // await FilePicker.platform.pickFiles(
-            //   type: FileType.any, // Change to `FileType.any` for all files
-            // );
-            if (Platform.isAndroid) {
-              const intent = AndroidIntent(
-                action: 'android.intent.action.VIEW',
-                type: 'image/*', // Opens gallery
-                flags: [Flag.FLAG_ACTIVITY_NEW_TASK],
-              );
-              await intent.launch();
-            } else if (Platform.isIOS) {
-              final Uri uri = Uri.parse("photos-redirect://");
-              if (!await launchUrl(uri)) {
-                throw Exception("Could not open gallery");
-              }
-            }
-            else {
-              throw UnsupportedError("This platform is not supported");
-            }
-          },
-          onImageCaptured: (ImageAndLocationData data) async {
-            print('Captured image path: ${data.imagePath}');
-            print('Latitude: ${data.latitude}');
-            print('Longitude: ${data.longitude}');
-            print('Location name: ${data.locationName}');
-            print('Sublocation: ${data.subLocation}');
-            _saveImageToGallery(data.imagePath!);
+      body: Stack(
+        children: [
+          if (_isCameraInitialized)
+            MapCameraLocation(
+              camera: widget.camera,
+              onGalleryClick: () async {
+                if (Platform.isAndroid) {
+                  const intent = AndroidIntent(
+                    action: 'android.intent.action.VIEW',
+                    type: 'image/*',
+                    flags: [Flag.FLAG_ACTIVITY_NEW_TASK],
+                  );
+                  await intent.launch();
+                } else if (Platform.isIOS) {
+                  final Uri uri = Uri.parse("photos-redirect://");
+                  if (!await launchUrl(uri)) {
+                    throw Exception("Could not open gallery");
+                  }
+                } else {
+                  throw UnsupportedError("This platform is not supported");
+                }
+              },
+              onImageCaptured: (ImageAndLocationData data) async {
+                print('Captured image path: ${data.imagePath}');
+                print('Latitude: ${data.latitude}');
+                print('Longitude: ${data.longitude}');
+                print('Location name: ${data.locationName}');
+                print('Sublocation: ${data.subLocation}');
+                _saveImageToGallery(data.imagePath!);
+              },
+            ),
 
-          },
-        ));
+          // Flashlight Toggle Button
+          Positioned(
+            top: 50,
+            right: 20,
+            child: IconButton(
+              icon: Icon(
+                _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                color: Colors.white,
+                size: 30,
+              ),
+              onPressed: _toggleFlashlight,
+            ),
+          ),
+        ],
+      ),
+    );
   }
-
 
 
   Future<void> _saveImageToGallery(String imagePath) async {
