@@ -57,7 +57,7 @@ class _SplashScreenState extends State<SplashScreen> {
     } else if (!statuses[Permission.manageExternalStorage]!.isGranted) {
       _showPermissionDialog(context, 'External Storage', Permission.manageExternalStorage);
     } else {
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => CameraScreen(
