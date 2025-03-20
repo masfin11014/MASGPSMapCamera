@@ -64,7 +64,6 @@ class _CameraScreenState extends State<CameraScreen> {
       });
     } catch (e) {
       print("Camera initialization error: $e");
-      Fluttertoast.showToast(msg: "Camera error: $e");
     }
   }
 
