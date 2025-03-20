@@ -22,9 +22,10 @@ class CameraScreen extends StatefulWidget {
 
 class _CameraScreenState extends State<CameraScreen> {
   CameraController? _cameraController;
+  Future<void>? _cameraInitializeFuture;
   bool _isFlashOn = false;
-  bool _isCameraInitialized = false;
   int _selectedCameraIndex = 0;
+  bool _isSwitchingCamera = false;
 
   @override
   void initState() {
@@ -32,123 +33,138 @@ class _CameraScreenState extends State<CameraScreen> {
     _initializeCamera(_selectedCameraIndex);
   }
 
+  /// Initializes the camera
   Future<void> _initializeCamera(int cameraIndex) async {
+    if (!mounted) return;
+
     try {
-      _cameraController = CameraController(
-        widget.cameras[cameraIndex], // Use new camera
-        ResolutionPreset.high,
+      if (cameraIndex >= widget.cameras.length) {
+        print("Invalid camera index: $cameraIndex");
+        return;
+      }
+
+      // Dispose of old camera controller
+      await _cameraController?.dispose();
+      _cameraController = null;
+
+      // Start new camera initialization
+      final CameraController controller = CameraController(
+        widget.cameras[cameraIndex],
+        ResolutionPreset.medium,
+        enableAudio: false,
       );
 
-      await _cameraController!.initialize();
+      _cameraInitializeFuture = controller.initialize();
+      await _cameraInitializeFuture; // Wait until initialized
+
       if (!mounted) return;
 
       setState(() {
-        _isCameraInitialized = true;
+        _cameraController = controller;
       });
     } catch (e) {
-      print("Error initializing camera: $e");
+      print("Camera initialization error: $e");
+      Fluttertoast.showToast(msg: "Camera error: $e");
     }
   }
 
+  /// Toggles the flashlight
   void _toggleFlashlight() async {
-    if (_cameraController?.value.isInitialized ?? false) {
-      try {
-        await _cameraController!
-            .setFlashMode(_isFlashOn ? FlashMode.off : FlashMode.torch);
-        setState(() {
-          _isFlashOn = !_isFlashOn;
-        });
-      } catch (e) {
-        print("Error toggling flashlight: $e");
-      }
+    if (_cameraController == null || !_cameraController!.value.isInitialized || _isSwitchingCamera) return;
+
+    try {
+      await _cameraController!
+          .setFlashMode(_isFlashOn ? FlashMode.off : FlashMode.torch);
+      setState(() {
+        _isFlashOn = !_isFlashOn;
+      });
+    } catch (e) {
+      print("Error toggling flashlight: $e");
     }
   }
 
+  /// Switches between front and back cameras
   void _switchCamera() async {
-    if (widget.cameras.length < 2) {
-      print("No front camera available!");
-      return;
-    }
-
-    int newIndex = _selectedCameraIndex == 0 ? 1 : 0;
-
-    // Dispose old controller before switching
-    await _cameraController?.dispose();
+    if (_isSwitchingCamera || widget.cameras.length < 2) return;
 
     setState(() {
-      _selectedCameraIndex = newIndex;
-      _isCameraInitialized = false; // Temporarily hide UI
-      _cameraController = null; // Ensure proper cleanup
+      _isSwitchingCamera = true;
     });
 
-    // Reinitialize with new camera
+    int newIndex = _selectedCameraIndex == 0 ? 1 : 0;
+    print("Switching to camera index: $newIndex");
+
     await _initializeCamera(newIndex);
 
     setState(() {
-      _isCameraInitialized = true; // Show UI again
+      _selectedCameraIndex = newIndex;
+      _isSwitchingCamera = false;
     });
   }
 
-
   @override
   void dispose() {
-    _cameraController?.dispose(); // Safe disposal
+    _cameraController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          if (_cameraController != null &&
-              _cameraController!.value.isInitialized)
+      body: FutureBuilder<void>(
+        future: _cameraInitializeFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            return Stack(
+              children: [
+                MapCameraLocation(
+                  camera: widget.cameras[_selectedCameraIndex],
+                  onImageCaptured: (ImageAndLocationData data) async {
+                    print('Captured image path: ${data.imagePath}');
+                    print('Latitude: ${data.latitude}');
+                    print('Longitude: ${data.longitude}');
+                    _saveImageToGallery(data.imagePath!);
+                  },
+                ),
 
-            MapCameraLocation(
-              camera: widget.cameras[_selectedCameraIndex],
-              // onGalleryClick: _openGallery,
-              onImageCaptured: (ImageAndLocationData data) async {
-                print('Captured image path: ${data.imagePath}');
-                print('Latitude: ${data.latitude}');
-                print('Longitude: ${data.longitude}');
-                print('Location name: ${data.locationName}');
-                print('Sublocation: ${data.subLocation}');
-                _saveImageToGallery(data.imagePath!);
-              },
-            ),
+                // Flashlight Toggle Button
+                Positioned(
+                  top: 50,
+                  right: 20,
+                  child: IconButton(
+                    icon: Icon(
+                      _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                    onPressed: _toggleFlashlight,
+                  ),
+                ),
 
-          // Flashlight Toggle Button
-          Positioned(
-            top: 50,
-            right: 20,
-            child: IconButton(
-              icon: Icon(
-                _isFlashOn ? Icons.flash_on : Icons.flash_off,
-                color: Colors.white,
-                size: 30,
-              ),
-              onPressed: _toggleFlashlight,
-            ),
-          ),
-
-          // Switch Camera Button
-          Positioned(
-            top: 100,
-            right: 20,
-            child: IconButton(
-              icon: Icon(
-                Icons.switch_camera,
-                color: Colors.white,
-                size: 30,
-              ),
-              onPressed: _switchCamera,
-            ),
-          ),
-        ],
+                // Switch Camera Button
+                Positioned(
+                  top: 100,
+                  right: 20,
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.switch_camera,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                    onPressed: _switchCamera,
+                  ),
+                ),
+              ],
+            );
+          } else {
+            return Center(child: CircularProgressIndicator());
+          }
+        },
       ),
     );
   }
 
+  /// Opens the gallery
   Future<void> _openGallery() async {
     if (Platform.isAndroid) {
       const intent = AndroidIntent(
@@ -167,23 +183,21 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
+  /// Saves captured image to the gallery
   Future<void> _saveImageToGallery(String imagePath) async {
     try {
       final bytes = await File(imagePath).readAsBytes();
       final img.Image image = img.decodeImage(Uint8List.fromList(bytes))!;
 
-      // Get the directory where the image will be saved
       final directory = await getExternalStorageDirectory();
       final filePath = '${directory!.path}/saved_image.jpg';
 
-      // Write the image to the new file path
       final newFile = File(filePath)
         ..writeAsBytesSync(Uint8List.fromList(img.encodeJpg(image)));
 
-      // Save to the gallery
       if (Platform.isAndroid || Platform.isIOS) {
         final result = await MethodChannel(
-                'com.mas.gps_map_camera.mas_gps_map_camera/gallery')
+            'com.mas.gps_map_camera.mas_gps_map_camera/gallery')
             .invokeMethod('saveToGallery', {'path': newFile.path});
         print('Image saved to gallery: $result');
         Fluttertoast.showToast(
