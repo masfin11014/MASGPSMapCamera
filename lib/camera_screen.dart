@@ -108,7 +108,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
             MapCameraLocation(
               camera: widget.cameras[_selectedCameraIndex],
-              onGalleryClick: _openGallery,
+              // onGalleryClick: _openGallery,
               onImageCaptured: (ImageAndLocationData data) async {
                 print('Captured image path: ${data.imagePath}');
                 print('Latitude: ${data.latitude}');
