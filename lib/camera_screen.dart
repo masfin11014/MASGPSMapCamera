@@ -99,9 +99,7 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body:
-
-      Stack(
+      body: Stack(
         children: [
           if (_cameraController != null &&
               _cameraController!.value.isInitialized)
