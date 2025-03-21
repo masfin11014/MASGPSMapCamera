@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:map_camera_flutter/map_camera_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../constants/app_colors.dart';
@@ -15,16 +16,26 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  NavigatorState? _navigator;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((value) {
-      checkPermissionsAndRedirect(context);
-    });
+    checkallpermissiongrant();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _navigator = Navigator.of(context);
   }
 
   @override
   void dispose() {
+    // // Don't pop if the widget is already disposed
+    // if (mounted) {
+    //   _navigator?.pop();
+    // }
     super.dispose();
   }
 
@@ -38,6 +49,27 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 
+  Future<bool> checkAllPermissionsGranted() async {
+    // Check if all required permissions are granted
+    PermissionStatus cameraStatus = await Permission.camera.status;
+    PermissionStatus microphoneStatus = await Permission.microphone.status;
+    PermissionStatus locationStatus = await Permission.location.status;
+    PermissionStatus manageExternalStorageStatus = await Permission.manageExternalStorage.status;
+
+    // If any of the permissions is not granted, return false
+    if (cameraStatus.isDenied || microphoneStatus.isDenied || locationStatus.isDenied || manageExternalStorageStatus.isDenied) {
+      return false;
+    }
+
+    // If any permission is permanently denied (on Android), return false
+    if (cameraStatus.isPermanentlyDenied || microphoneStatus.isPermanentlyDenied || locationStatus.isPermanentlyDenied || manageExternalStorageStatus.isPermanentlyDenied) {
+      return false;
+    }
+
+    // All permissions granted
+    return true;
+  }
+
   Future<void> checkPermissionsAndRedirect(BuildContext context) async {
     // Request all permissions at once
     Map<Permission, PermissionStatus> statuses = await [
@@ -49,26 +81,20 @@ class _SplashScreenState extends State<SplashScreen> {
 
     // Check if any permission is denied and show the corresponding dialog
     if (!statuses[Permission.camera]!.isGranted) {
-      _showPermissionDialog(context, 'Camera', Permission.camera);
+      _showPermissionDialog('Camera', Permission.camera);
     } else if (!statuses[Permission.microphone]!.isGranted) {
-      _showPermissionDialog(context, 'Microphone', Permission.microphone);
+      _showPermissionDialog('Microphone', Permission.microphone);
     } else if (!statuses[Permission.location]!.isGranted) {
-      _showPermissionDialog(context, 'Location', Permission.location);
+      _showPermissionDialog('Location', Permission.location);
     } else if (!statuses[Permission.manageExternalStorage]!.isGranted) {
-      _showPermissionDialog(context, 'External Storage', Permission.manageExternalStorage);
+      _showPermissionDialog('External Storage', Permission.manageExternalStorage);
     } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CameraScreen(
-            cameras: widget.cameras,
-          ),
-        ),
-      );
+      navigateToNextScreen();
+
     }
   }
 
-  void _showPermissionDialog(BuildContext context, String permissionName, Permission permission) {
+  void _showPermissionDialog(String permissionName, Permission permission) {
     showDialog(
       context: context,
       builder: (context) {
@@ -85,12 +111,28 @@ class _SplashScreenState extends State<SplashScreen> {
 
                 if (status.isGranted) {
                   print("permission granted");
-                  checkPermissionsAndRedirect(context);
+                  Navigator.of(context).pop();
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      checkPermissionsAndRedirect(context);
+                    }
+                  });
                 } else if (status.isDenied) {
                   print("permission denied");
+                  Navigator.of(context).pop();
+                  // checkPermissionsAndRedirect(context);
                 } else if (status.isPermanentlyDenied) {
                   print("Permission permanently denied. Navigating to settings.");
-                  openAppSettings();
+                  openAppSettings().then((value) {
+                    WidgetsBinding.instance.addPostFrameCallback((value) {
+                      // Navigator.of(context).pop();
+
+                      if (mounted) {
+
+                        checkPermissionsAndRedirect(context);
+                      }
+                    });
+                  });
                 }
               },
               child: Text('Grant Permission'),
@@ -106,5 +148,38 @@ class _SplashScreenState extends State<SplashScreen> {
         );
       },
     );
+  }
+
+  Future<void> checkallpermissiongrant() async {
+    bool checkPermissionGrant = await checkAllPermissionsGranted();
+
+    if (!checkPermissionGrant) {
+
+      checkPermissionsAndRedirect(context);
+    } else {
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CameraScreen(
+            cameras: widget.cameras,
+          ),
+        ),
+      );
+    }
+  }
+
+  void navigateToNextScreen() {
+    // Navigator.of(context).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CameraScreen(
+            cameras: widget.cameras,
+          ),
+        ),
+      );
+    });
   }
 }

@@ -1,9 +1,9 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:image/image.dart' as img;
@@ -30,12 +30,19 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeCamera(_selectedCameraIndex);
+    SchedulerBinding.instance.addPostFrameCallback((value) {
+      if (mounted) _initializeCamera(_selectedCameraIndex);
+    });
   }
 
   /// Initializes the camera
   Future<void> _initializeCamera(int cameraIndex) async {
-    if (!mounted) return;
+    print("Initializing camera index: $cameraIndex");
+
+    if (!mounted) {
+      print("Widget is not mounted. Returning.");
+      return;
+    }
 
     try {
       if (cameraIndex >= widget.cameras.length) {
@@ -59,8 +66,13 @@ class _CameraScreenState extends State<CameraScreen> {
 
       if (!mounted) return;
 
-      setState(() {
-        _cameraController = controller;
+      SchedulerBinding.instance.addPostFrameCallback((value) {
+        if (mounted) {
+          setState(() {
+            print("Camera initialized at index: $cameraIndex");
+            _cameraController = controller;
+          });
+        }
       });
     } catch (e) {
       print("Camera initialization error: $e");
@@ -72,8 +84,7 @@ class _CameraScreenState extends State<CameraScreen> {
     if (_cameraController == null || !_cameraController!.value.isInitialized || _isSwitchingCamera) return;
 
     try {
-      await _cameraController!
-          .setFlashMode(_isFlashOn ? FlashMode.off : FlashMode.torch);
+      await _cameraController!.setFlashMode(_isFlashOn ? FlashMode.off : FlashMode.torch);
       setState(() {
         _isFlashOn = !_isFlashOn;
       });
@@ -123,9 +134,6 @@ class _CameraScreenState extends State<CameraScreen> {
                     print('Latitude: ${data.latitude}');
                     print('Longitude: ${data.longitude}');
                     _saveImageToGallery(data.imagePath!);
-                  },
-                  onGalleryClick: (){
-                    _openGallery();
                   },
                 ),
 
@@ -194,13 +202,10 @@ class _CameraScreenState extends State<CameraScreen> {
       final directory = await getExternalStorageDirectory();
       final filePath = '${directory!.path}/saved_image.jpg';
 
-      final newFile = File(filePath)
-        ..writeAsBytesSync(Uint8List.fromList(img.encodeJpg(image)));
+      final newFile = File(filePath)..writeAsBytesSync(Uint8List.fromList(img.encodeJpg(image)));
 
       if (Platform.isAndroid || Platform.isIOS) {
-        final result = await MethodChannel(
-            'com.mas.gps_map_camera.mas_gps_map_camera/gallery')
-            .invokeMethod('saveToGallery', {'path': newFile.path});
+        final result = await MethodChannel('com.mas.gps_map_camera.mas_gps_map_camera/gallery').invokeMethod('saveToGallery', {'path': newFile.path});
         print('Image saved to gallery: $result');
         Fluttertoast.showToast(
           msg: "Image saved to gallery",
