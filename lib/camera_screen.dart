@@ -135,6 +135,9 @@ class _CameraScreenState extends State<CameraScreen> {
                     print('Longitude: ${data.longitude}');
                     _saveImageToGallery(data.imagePath!);
                   },
+                  onGalleryClick: (){
+                    _openGallery();
+                  },
                 ),
 
                 // Flashlight Toggle Button
