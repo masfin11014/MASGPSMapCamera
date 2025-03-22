@@ -20,7 +20,7 @@
 
     <application
         android:networkSecurityConfig="@xml/network_security_config"
-        android:label="mas_gps_map_camera"
+        android:label="MAS GPS Camera"
         android:name="${applicationName}"
         android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher">
