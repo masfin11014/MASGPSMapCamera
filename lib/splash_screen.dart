@@ -76,7 +76,7 @@ class _SplashScreenState extends State<SplashScreen> {
       Permission.camera,
       Permission.microphone,
       Permission.location,
-      Permission.manageExternalStorage,
+     // Permission.storage,
     ].request();
 
     // Check if any permission is denied and show the corresponding dialog
@@ -86,9 +86,7 @@ class _SplashScreenState extends State<SplashScreen> {
       _showPermissionDialog('Microphone', Permission.microphone);
     } else if (!statuses[Permission.location]!.isGranted) {
       _showPermissionDialog('Location', Permission.location);
-    } else if (!statuses[Permission.manageExternalStorage]!.isGranted) {
-      _showPermissionDialog('External Storage', Permission.manageExternalStorage);
-    } else {
+    }  else {
       navigateToNextScreen();
 
     }
