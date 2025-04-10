@@ -2,14 +2,17 @@ import 'dart:io';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 import 'package:camera/camera.dart';
+import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image/image.dart' as img;
 import 'package:map_camera_flutter/map_camera_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:path/path.dart' as p;
 
 class CameraScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -27,6 +30,11 @@ class _CameraScreenState extends State<CameraScreen> {
   int _selectedCameraIndex = 0;
   bool _isSwitchingCamera = false;
 
+  bool _isRecording = false;
+  String btnText = "Start Recording";
+  String? _videoPath;
+  String? _finalVideoPath;
+  String? _locationText;
   @override
   void initState() {
     super.initState();
@@ -112,6 +120,32 @@ class _CameraScreenState extends State<CameraScreen> {
     });
   }
 
+  Future<void> _startRecording() async {
+    final loc = await Geolocator.getCurrentPosition();
+    _locationText = 'Lat: ${loc.latitude}, Lng: ${loc.longitude}';
+
+    final dir = await getTemporaryDirectory();
+    _videoPath = p.join(dir.path, 'recorded.mp4');
+
+    await _cameraController?.startVideoRecording();
+   // setState(() => _isRecording = true);
+    setState(() {
+      _isRecording = true;
+      btnText = "Stop Recoding";
+    });
+  }
+
+  Future<void> _stopRecording() async {
+    final file = await _cameraController?.stopVideoRecording();
+   // setState(() => _isRecording = false);
+    setState(() {
+      _isRecording = false;
+      btnText = "Start Recoding";
+    });
+    _videoPath = file?.path;
+    _saveVideoToGallery(file!.path,_locationText!);
+  }
+
   @override
   void dispose() {
     _cameraController?.dispose();
@@ -138,6 +172,10 @@ class _CameraScreenState extends State<CameraScreen> {
                   onGalleryClick: (){
                     _openGallery();
                   },
+                  onVideoClick: (){
+                    _isRecording ? _stopRecording() : _startRecording();
+                  },
+                  btnText: btnText,
                 ),
 
                 // Flashlight Toggle Button
@@ -224,4 +262,57 @@ class _CameraScreenState extends State<CameraScreen> {
       print('Error saving image: $e');
     }
   }
+
+  Future<void> _saveVideoToGallery(String videoPath, String text) async {
+    try {
+      final inputFile = File(videoPath);
+
+      if (!await inputFile.exists()) {
+        throw Exception("Video file does not exist: $videoPath");
+      }
+
+      final directory = await getExternalStorageDirectory();
+      final now = DateTime.now();
+      final safeTimestamp = now.toIso8601String().replaceAll(RegExp(r'[:.]'), '_');
+      final filePath = '${directory!.path}/${safeTimestamp}_video.mp4';
+      final newFile = await inputFile.copy(filePath);
+
+      print("Output video path: ${newFile.path}");
+
+      if (Platform.isAndroid || Platform.isIOS) {
+        // Log the text to verify its correctness
+        print("Text to be used in overlay: '$text'");
+
+        final escapedText = text
+            .replaceAll("'", "\\\\'")
+            .replaceAll(":", "\\:");
+
+        final command =
+            "-y -i $videoPath -vf \"drawtext=fontfile=/system/fonts/DroidSans.ttf:text='${escapedText}':fontcolor=red:fontsize=24:x=10:y=10\" -c:v libx264 -c:a aac -f mp4 ${newFile.path}";
+
+        // Execute FFmpeg command to add text overlay
+        final session = await FFmpegKit.execute(command);
+
+        final returnCode = await session.getReturnCode();
+        if (returnCode!.isValueSuccess()) {
+          print('Video processed successfully with overlay.');
+        } else {
+          // Collect detailed logs from FFmpeg
+          final outputLog = await session.getAllLogs();
+          print('FFmpeg failed:');
+          for (var log in outputLog) {
+            print(log.getMessage());
+          }
+        }
+
+        setState(() {});
+        final result = await MethodChannel('com.mas.gps_map_camera.mas_gps_map_camera/gallery')
+            .invokeMethod('saveVideoToGallery', {'path': newFile.path});
+        print('Video saved to gallery: $result');
+      }
+    } catch (e) {
+      print('Error saving video: $e');
+    }
+  }
+
 }

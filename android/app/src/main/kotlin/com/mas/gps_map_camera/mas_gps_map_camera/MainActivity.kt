@@ -27,7 +27,15 @@ class MainActivity : FlutterActivity() {
                 } else {
                     result.error("INVALID_ARGUMENT", "File path is null", null)
                 }
-            } else {
+            } else if (call.method == "saveVideoToGallery") {
+                val path = call.argument<String>("path")
+                if (path != null) {
+                    saveVideoToGallery(path, result)
+                } else {
+                    result.error("INVALID_ARGUMENT", "File path is null", null)
+                }
+            }
+            else {
                 result.notImplemented()
             }
         }
@@ -67,6 +75,33 @@ class MainActivity : FlutterActivity() {
 
         } catch (e: Exception) {
             result.error("ERROR", "Error saving image", e.message)
+        }
+    }
+
+    private fun saveVideoToGallery(path: String, result: MethodChannel.Result) {
+        try {
+            val videoFile = File(path)
+            val values = ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, videoFile.name)
+                put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MyApp")
+            }
+
+            val resolver = applicationContext.contentResolver
+            val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+
+            if (uri != null) {
+                val outputStream = resolver.openOutputStream(uri)
+                val inputStream = FileInputStream(videoFile)
+                inputStream.copyTo(outputStream!!)
+                inputStream.close()
+                outputStream.close()
+                result.success("Video saved")
+            } else {
+                result.error("SAVE_ERROR", "Could not create MediaStore entry", null)
+            }
+        } catch (e: Exception) {
+            result.error("SAVE_ERROR", "Exception saving video: ${e.message}", null)
         }
     }
 }
