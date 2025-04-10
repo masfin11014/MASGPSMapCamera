@@ -8,12 +8,13 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:image/image.dart' as img;
 import 'package:map_camera_flutter/map_camera_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path/path.dart' as p;
-
+import 'package:intl/intl.dart';
 class CameraScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
 
@@ -143,7 +144,9 @@ class _CameraScreenState extends State<CameraScreen> {
       btnText = "Start Recoding";
     });
     _videoPath = file?.path;
-    _saveVideoToGallery(file!.path,_locationText!);
+    final overlayText = await generateOverlayText();
+
+    _saveVideoToGallery(file!.path,overlayText);
   }
 
   @override
@@ -263,6 +266,79 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
+
+  Future<String> generateOverlayText() async {
+    try {
+      // Step 1: Get current GPS location
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      double lat = position.latitude;
+      double lng = position.longitude;
+
+      // Step 2: Get address from lat/lng
+      List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+      Placemark place = placemarks.first;
+
+      String address =
+          "${place.name}, ${place.locality}, ${place.postalCode}, ${place.country}";
+
+      // Step 3: Get current date & time
+      String dateTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
+
+      // Step 4: Combine everything
+      String overlayText = "Lat: $lat, Lng: $lng\\nTime: $dateTime\\nAddress: $address";
+      return overlayText;
+    } catch (e) {
+      print("Error generating overlay text: $e");
+      return "Lat/Lng not found\nTime: N/A\nAddress: N/A";
+    }
+  }
+
+
+  Future<void> _saveVideoToGallery(String videoPath, String text) async {
+    try {
+      final inputFile = File(videoPath);
+      if (!await inputFile.exists()) {
+        throw Exception("Video file does not exist: $videoPath");
+      }
+
+      final directory = await getExternalStorageDirectory();
+      final now = DateTime.now();
+      final safeTimestamp = now.toIso8601String().replaceAll(RegExp(r'[:.]'), '_');
+      final outputPath = '${directory!.path}/${safeTimestamp}_video.mp4';
+
+      // Write multiline overlay text to a temp file
+      final textFile = File('${directory.path}/overlay.txt');
+      await textFile.writeAsString(text);
+
+      // FFmpeg command using textfile for multiline overlay
+      final command =
+          "-y -i $videoPath -vf \"drawtext=fontfile=/system/fonts/DroidSans.ttf:textfile='${textFile.path}':fontcolor=white:fontsize=24:x=10:y=H-th-40:box=1:boxcolor=black@0.5:boxborderw=10\" -c:v libx264 -c:a aac -f mp4 $outputPath";
+
+      final session = await FFmpegKit.execute(command);
+      final returnCode = await session.getReturnCode();
+
+      if (returnCode!.isValueSuccess()) {
+        print('✅ Video processed successfully with overlay.');
+        await MethodChannel('com.mas.gps_map_camera.mas_gps_map_camera/gallery')
+            .invokeMethod('saveVideoToGallery', {'path': outputPath});
+      } else {
+        final logs = await session.getAllLogs();
+        print("❌ FFmpeg error:");
+        for (final log in logs) {
+          print(log.getMessage());
+        }
+      }
+    } catch (e) {
+      print('❌ Error saving video: $e');
+    }
+  }
+
+
+
+/*
   Future<void> _saveVideoToGallery(String videoPath, String text) async {
     try {
       final inputFile = File(videoPath);
@@ -314,5 +390,6 @@ class _CameraScreenState extends State<CameraScreen> {
       print('Error saving video: $e');
     }
   }
+*/
 
 }
