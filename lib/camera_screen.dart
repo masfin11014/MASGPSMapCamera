@@ -323,7 +323,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
       // FFmpeg command
       final command =
-          "-y -i $videoPath -vf \"drawtext=fontfile=/system/fonts/DroidSans.ttf:textfile='${textFile.path}':fontcolor=white:fontsize=14:x=10:y=H-th-40:line_spacing=10:box=1:boxcolor=black@0.5:boxborderw=10:reload=1\" -c:v libx264 -c:a aac -f mp4 $outputPath";
+          "-y -i $videoPath -vf \"drawtext=fontfile=/system/fonts/DroidSans.ttf:textfile='${textFile.path}':fontcolor=white:fontsize=16:x=10:y=H-th-40:line_spacing=10:box=1:boxcolor=black@0.5:boxborderw=10:reload=1\" -c:v libx264 -c:a aac -f mp4 $outputPath";
 
       final session = await FFmpegKit.execute(command);
       final returnCode = await session.getReturnCode();
