@@ -1,7 +1,9 @@
+import 'package:app_version_update_lite/app_version_update_lite.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:map_camera_flutter/map_camera_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_images.dart';
 import 'camera_screen.dart';
@@ -17,11 +19,12 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   NavigatorState? _navigator;
+  final playStoreId = 'com.mas.gps_map_camera.mas_gps_map_camera';
 
   @override
   void initState() {
     super.initState();
-    checkallpermissiongrant();
+    checkUpdate();
   }
 
   @override
@@ -48,6 +51,70 @@ class _SplashScreenState extends State<SplashScreen> {
       ),
     );
   }
+
+
+  checkUpdate() async {
+    await AppVersionUpdate.checkForUpdates(
+      playStoreId: playStoreId,
+      country: 'in',
+    ).then((result) async {
+      if (result.canUpdate!) {
+        showUpdateDialog(context);
+      } else {
+        checkallpermissiongrant();
+      }
+    });
+  }
+
+  void showUpdateDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent user from dismissing the dialog
+      builder: (BuildContext context) {
+        return PopScope(
+          canPop: false,
+          child: AlertDialog(
+            contentPadding: const EdgeInsets.fromLTRB(5, 10, 5, 0),
+            actionsAlignment: MainAxisAlignment.spaceEvenly,
+            title: Text(
+              "Update Available",
+              textAlign: TextAlign.center,
+            ),
+            content: Container(
+              width: 200,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      "Please Update to Continue.",
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  SizedBox(
+                    height: 5,
+                  )
+                ],
+              ),
+            ),
+            actions: <Widget>[
+              ElevatedButton(
+                child: Text("Update"),
+                onPressed: () {
+                  if (Platform.isAndroid) {
+                    launchUrl(Uri.parse("https://play.google.com/store/apps/details?id=$playStoreId"));
+                  }
+                }, // Call the _submit method here
+               // Use your AppColors here
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
 
   Future<bool> checkAllPermissionsGranted() async {
     // Check if all required permissions are granted

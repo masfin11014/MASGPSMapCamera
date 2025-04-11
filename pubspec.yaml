@@ -44,6 +44,7 @@ dependencies:
   geolocator: ^13.0.1
   ffmpeg_kit_flutter_full_gpl: ^6.0.0
   geocoding: ^3.0.0
+  app_version_update_lite: ^4.0.4
 dev_dependencies:
   flutter_test:
     sdk: flutter
