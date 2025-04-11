@@ -287,8 +287,9 @@ class _CameraScreenState extends State<CameraScreen> {
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
       Placemark place = placemarks.first;
 
-      String address =
-          "${place.name}, ${place.locality}, ${place.postalCode}, ${place.country}";
+    //  String address = "${place.name}, ${place.locality}, ${place.postalCode}, ${place.country}";
+      String address = "${place.street ?? ""}, ${place.subLocality ?? ""}, ${place.name ?? ""}, "
+    "${place.postalCode ?? ""}, ${place.administrativeArea ?? ""}, ${place.country ?? ""}";
       String dateTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
 
       // Use real newlines here!
@@ -322,7 +323,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
       // FFmpeg command
       final command =
-          "-y -i $videoPath -vf \"drawtext=fontfile=/system/fonts/DroidSans.ttf:textfile='${textFile.path}':fontcolor=white:fontsize=16:x=10:y=H-th-40:line_spacing=10:box=1:boxcolor=black@0.5:boxborderw=10:reload=1\" -c:v libx264 -c:a aac -f mp4 $outputPath";
+          "-y -i $videoPath -vf \"drawtext=fontfile=/system/fonts/DroidSans.ttf:textfile='${textFile.path}':fontcolor=white:fontsize=14:x=10:y=H-th-40:line_spacing=10:box=1:boxcolor=black@0.5:boxborderw=10:reload=1\" -c:v libx264 -c:a aac -f mp4 $outputPath";
 
       final session = await FFmpegKit.execute(command);
       final returnCode = await session.getReturnCode();
