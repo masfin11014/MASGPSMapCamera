@@ -103,8 +103,15 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   /// Switches between front and back cameras
+
   void _switchCamera() async {
     if (_isSwitchingCamera || widget.cameras.length < 2) return;
+
+    // ✅ Don't switch while recording
+    if (_cameraController?.value.isRecordingVideo ?? false) {
+      print("🚫 Cannot switch camera while recording.");
+      return;
+    }
 
     setState(() {
       _isSwitchingCamera = true;
@@ -120,6 +127,7 @@ class _CameraScreenState extends State<CameraScreen> {
       _isSwitchingCamera = false;
     });
   }
+
 
   Future<void> _startRecording() async {
     final loc = await Geolocator.getCurrentPosition();
@@ -269,7 +277,6 @@ class _CameraScreenState extends State<CameraScreen> {
 
   Future<String> generateOverlayText() async {
     try {
-      // Step 1: Get current GPS location
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
@@ -277,21 +284,19 @@ class _CameraScreenState extends State<CameraScreen> {
       double lat = position.latitude;
       double lng = position.longitude;
 
-      // Step 2: Get address from lat/lng
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
       Placemark place = placemarks.first;
 
       String address =
           "${place.name}, ${place.locality}, ${place.postalCode}, ${place.country}";
-
-      // Step 3: Get current date & time
       String dateTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
 
-      // Step 4: Combine everything
-      String overlayText = "Lat: $lat, Lng: $lng\\nTime: $dateTime\\nAddress: $address";
+      // Use real newlines here!
+      String overlayText = "Lat: $lat, Lng: $lng\nTime: $dateTime\nAddress: $address";
+
       return overlayText;
     } catch (e) {
-      print("Error generating overlay text: $e");
+      print("⚠️ Error generating overlay text: $e");
       return "Lat/Lng not found\nTime: N/A\nAddress: N/A";
     }
   }
@@ -309,21 +314,22 @@ class _CameraScreenState extends State<CameraScreen> {
       final safeTimestamp = now.toIso8601String().replaceAll(RegExp(r'[:.]'), '_');
       final outputPath = '${directory!.path}/${safeTimestamp}_video.mp4';
 
-      // Write multiline overlay text to a temp file
+      // Save text with actual line breaks
       final textFile = File('${directory.path}/overlay.txt');
-      await textFile.writeAsString(text);
+      await textFile.writeAsString(text.replaceAll('\r\n', '\n'));
 
-      // FFmpeg command using textfile for multiline overlay
+      print('📄 Overlay text content:\n${await textFile.readAsString()}');
+
+      // FFmpeg command
       final command =
-          "-y -i $videoPath -vf \"drawtext=fontfile=/system/fonts/DroidSans.ttf:textfile='${textFile.path}':fontcolor=white:fontsize=24:x=10:y=H-th-40:box=1:boxcolor=black@0.5:boxborderw=10\" -c:v libx264 -c:a aac -f mp4 $outputPath";
+          "-y -i $videoPath -vf \"drawtext=fontfile=/system/fonts/DroidSans.ttf:textfile='${textFile.path}':fontcolor=white:fontsize=16:x=10:y=H-th-40:line_spacing=10:box=1:boxcolor=black@0.5:boxborderw=10:reload=1\" -c:v libx264 -c:a aac -f mp4 $outputPath";
 
       final session = await FFmpegKit.execute(command);
       final returnCode = await session.getReturnCode();
 
-      if (returnCode!.isValueSuccess()) {
+      if (returnCode?.isValueSuccess() ?? false) {
         print('✅ Video processed successfully with overlay.');
-        await MethodChannel('com.mas.gps_map_camera.mas_gps_map_camera/gallery')
-            .invokeMethod('saveVideoToGallery', {'path': outputPath});
+        await MethodChannel('com.mas.gps_map_camera.mas_gps_map_camera/gallery').invokeMethod('saveVideoToGallery', {'path': outputPath});
       } else {
         final logs = await session.getAllLogs();
         print("❌ FFmpeg error:");
@@ -335,61 +341,9 @@ class _CameraScreenState extends State<CameraScreen> {
       print('❌ Error saving video: $e');
     }
   }
-
-
-
-/*
-  Future<void> _saveVideoToGallery(String videoPath, String text) async {
-    try {
-      final inputFile = File(videoPath);
-
-      if (!await inputFile.exists()) {
-        throw Exception("Video file does not exist: $videoPath");
-      }
-
-      final directory = await getExternalStorageDirectory();
-      final now = DateTime.now();
-      final safeTimestamp = now.toIso8601String().replaceAll(RegExp(r'[:.]'), '_');
-      final filePath = '${directory!.path}/${safeTimestamp}_video.mp4';
-      final newFile = await inputFile.copy(filePath);
-
-      print("Output video path: ${newFile.path}");
-
-      if (Platform.isAndroid || Platform.isIOS) {
-        // Log the text to verify its correctness
-        print("Text to be used in overlay: '$text'");
-
-        final escapedText = text
-            .replaceAll("'", "\\\\'")
-            .replaceAll(":", "\\:");
-
-        final command =
-            "-y -i $videoPath -vf \"drawtext=fontfile=/system/fonts/DroidSans.ttf:text='${escapedText}':fontcolor=red:fontsize=24:x=10:y=10\" -c:v libx264 -c:a aac -f mp4 ${newFile.path}";
-
-        // Execute FFmpeg command to add text overlay
-        final session = await FFmpegKit.execute(command);
-
-        final returnCode = await session.getReturnCode();
-        if (returnCode!.isValueSuccess()) {
-          print('Video processed successfully with overlay.');
-        } else {
-          // Collect detailed logs from FFmpeg
-          final outputLog = await session.getAllLogs();
-          print('FFmpeg failed:');
-          for (var log in outputLog) {
-            print(log.getMessage());
-          }
-        }
-
-        setState(() {});
-        final result = await MethodChannel('com.mas.gps_map_camera.mas_gps_map_camera/gallery')
-            .invokeMethod('saveVideoToGallery', {'path': newFile.path});
-        print('Video saved to gallery: $result');
-      }
-    } catch (e) {
-      print('Error saving video: $e');
-    }
-  }
-*/
-
 }
+
+
+
+
+
