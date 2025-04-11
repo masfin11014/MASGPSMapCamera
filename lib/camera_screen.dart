@@ -330,6 +330,15 @@ class _CameraScreenState extends State<CameraScreen> {
 
       if (returnCode?.isValueSuccess() ?? false) {
         print('✅ Video processed successfully with overlay.');
+        Fluttertoast.showToast(
+          msg: "Video saved to gallery",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
         await MethodChannel('com.mas.gps_map_camera.mas_gps_map_camera/gallery').invokeMethod('saveVideoToGallery', {'path': outputPath});
       } else {
         final logs = await session.getAllLogs();
