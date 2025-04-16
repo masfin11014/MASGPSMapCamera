@@ -154,7 +154,7 @@ class _CameraScreenState extends State<CameraScreen> {
     _videoPath = file?.path;
     final overlayText = await generateOverlayText();
 
-    _saveVideoToGallery(file!.path,overlayText);
+    _saveVideoToGallery(context,file!.path,overlayText);
   }
 
   @override
@@ -303,7 +303,7 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
 
-  Future<void> _saveVideoToGallery(String videoPath, String text) async {
+  /*Future<void> _saveVideoToGallery(String videoPath, String text) async {
     try {
       final inputFile = File(videoPath);
       if (!await inputFile.exists()) {
@@ -349,6 +349,96 @@ class _CameraScreenState extends State<CameraScreen> {
       }
     } catch (e) {
       print('❌ Error saving video: $e');
+    }
+  }*/
+
+
+  Future<void> _saveVideoToGallery(BuildContext context, String videoPath, String text) async {
+    try {
+      final inputFile = File(videoPath);
+      if (!await inputFile.exists()) {
+        throw Exception("Video file does not exist: $videoPath");
+      }
+
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(child: CircularProgressIndicator());
+        },
+      );
+
+      final directory = await getExternalStorageDirectory();
+      final now = DateTime.now();
+      final safeTimestamp = now.toIso8601String().replaceAll(RegExp(r'[:.]'), '_');
+      final outputPath = '${directory!.path}/${safeTimestamp}_video.mp4';
+
+      // Save overlay text
+      final textFile = File('${directory.path}/overlay.txt');
+      await textFile.writeAsString(text.replaceAll('\r\n', '\n'));
+
+      print('📄 Overlay text content:\n${await textFile.readAsString()}');
+
+      // FFmpeg command
+      final command =
+          "-y -i $videoPath -vf \"drawtext=fontfile=/system/fonts/DroidSans.ttf:"
+          "textfile='${textFile.path}':fontcolor=white:fontsize=16:x=10:"
+          "y=H-th-40:line_spacing=10:box=1:boxcolor=black@0.5:boxborderw=10:reload=1\" "
+          "-c:v libx264 -c:a aac -f mp4 $outputPath";
+
+      final session = await FFmpegKit.execute(command);
+      final returnCode = await session.getReturnCode();
+
+      // Hide loading dialog
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      if (returnCode?.isValueSuccess() ?? false) {
+        print('✅ Video processed successfully with overlay.');
+
+        Fluttertoast.showToast(
+          msg: "Video saved to gallery",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+
+        await MethodChannel('com.mas.gps_map_camera.mas_gps_map_camera/gallery')
+            .invokeMethod('saveVideoToGallery', {'path': outputPath});
+      } else {
+        final logs = await session.getAllLogs();
+        print("❌ FFmpeg error:");
+        for (final log in logs) {
+          print(log.getMessage());
+        }
+
+        Fluttertoast.showToast(
+          msg: "Failed to process video",
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
+    } catch (e) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop(); // Ensure dialog is dismissed on error too
+      }
+
+      print('❌ Error saving video: $e');
+
+      Fluttertoast.showToast(
+        msg: "Error: ${e.toString()}",
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.BOTTOM,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
     }
   }
 }
